@@ -33,6 +33,20 @@
       <input id="seed" type="text" placeholder="leave blank for random" autocomplete="off" spellcheck="false">
     </label>
 
+    <div class="field">
+      <span>Game mode</span>
+      <div class="modes" role="radiogroup" aria-label="Game mode">
+        <label class="mode">
+          <input type="radio" name="mode" value="survival" checked>
+          <span><b>Survival</b><small>Health, fall damage, mine and collect blocks</small></span>
+        </label>
+        <label class="mode">
+          <input type="radio" name="mode" value="creative">
+          <span><b>Creative</b><small>Fly, instant breaking, unlimited blocks</small></span>
+        </label>
+      </div>
+    </div>
+
     <label class="field">
       <span>Render distance <b id="rdValue">8</b> chunks</span>
       <input id="rd" type="range" min="4" max="16" step="1" value="8">
@@ -48,9 +62,9 @@
       <ul>
         <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &middot; <kbd>Space</kbd> jump &middot; <kbd>Shift</kbd> sneak</li>
         <li><kbd>Ctrl</kbd> or hold <kbd>W</kbd> twice to sprint</li>
-        <li><kbd>F</kbd> or double-tap <kbd>Space</kbd> to fly &middot; <kbd>Space</kbd>/<kbd>Shift</kbd> to rise and fall</li>
-        <li>Left click breaks &middot; right click places &middot; middle click picks</li>
-        <li><kbd>1</kbd>–<kbd>9</kbd> or scroll to pick a slot &middot; <kbd>E</kbd> opens the block list</li>
+        <li>Creative: <kbd>F</kbd> or double-tap <kbd>Space</kbd> to fly &middot; <kbd>Space</kbd>/<kbd>Shift</kbd> to rise and fall</li>
+        <li>Left click breaks (hold to mine in survival) &middot; right click places &middot; middle click picks</li>
+        <li><kbd>1</kbd>–<kbd>9</kbd> or scroll to pick a slot &middot; <kbd>E</kbd> opens the block list (your inventory in survival)</li>
         <li><kbd>F3</kbd> debug overlay &middot; <kbd>Esc</kbd> pause</li>
       </ul>
     </details>

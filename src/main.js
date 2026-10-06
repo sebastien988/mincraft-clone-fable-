@@ -2450,8 +2450,11 @@ var st = 52,
         e.clearRect(0, 0, this.w, this.h),
         t.underwater && this.drawUnderwaterTint(),
         this.drawVignette(),
+        t.hurtFlash > 0 && this.drawHurtFlash(t.hurtFlash),
         this.inventoryOpen || this.drawCrosshair(),
+        this.inventoryOpen || !(t.mineProgress > 0) || this.drawMiningProgress(t.mineProgress),
         this.drawHotbar(t),
+        t.survival && this.drawVitals(t),
         this.inventoryOpen && this.drawInventory(t),
         t.debug && this.drawDebug(t),
         this.drawMessages());
@@ -2505,7 +2508,8 @@ var st = 52,
         if (f) {
           let u = this.icon(f),
             d = 7;
-          e.drawImage(u, l + d, r + d, st - d * 2, st - d * 2);
+          (e.drawImage(u, l + d, r + d, st - d * 2, st - d * 2),
+            t.counts && this.drawCount(t.counts.get(f) || 0, l + st - 5, r + st - 6));
         }
         ((e.font = "600 11px ui-monospace, Menlo, Consolas, monospace"),
           (e.fillStyle = "rgba(255,255,255,0.55)"),
@@ -2529,7 +2533,8 @@ var st = 52,
       let e = this.ctx,
         s = 8,
         o = 56,
-        n = Math.ceil(Ft.length / s),
+        v = t.inventoryList || Ft,
+        n = Math.max(1, Math.ceil(v.length / s)),
         r = s * o + 24,
         a = n * o + 66,
         h = Math.round((this.w - r) / 2),
@@ -2542,9 +2547,16 @@ var st = 52,
         e.stroke(),
         (e.font = "600 15px system-ui, -apple-system, Segoe UI, sans-serif"),
         (e.fillStyle = "rgba(255,255,255,0.82)"),
-        e.fillText("Blocks  \u2014  click to put in slot " + (t.selectedSlot + 1), h + 14, l + 26),
+        e.fillText(
+          (t.survival ? "Inventory" : "Blocks") +
+            (v.length
+              ? "  \u2014  click to put in slot " + (t.selectedSlot + 1)
+              : "  \u2014  empty, go mine some blocks"),
+          h + 14,
+          l + 26,
+        ),
         (this.inventoryRects = []),
-        Ft.forEach((c, f) => {
+        v.forEach((c, f) => {
           let u = h + 12 + (f % s) * o,
             d = l + 42 + Math.floor(f / s) * o,
             g =
@@ -2557,6 +2569,7 @@ var st = 52,
             (e.fillStyle = g ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.05)"),
             e.fill(),
             e.drawImage(this.icon(c), u + 6, d + 6, o - 16, o - 16),
+            t.counts && this.drawCount(t.counts.get(c) || 0, u + o - 9, d + o - 10),
             this.inventoryRects.push({ id: c, x: u, y: d, w: o - 4, h: o - 4 }),
             g &&
               ((e.font = "600 13px system-ui, -apple-system, Segoe UI, sans-serif"),
@@ -2565,6 +2578,66 @@ var st = 52,
               e.fillText(Z[c].name, this.w / 2, l + a - 14),
               (e.textAlign = "left")));
         }));
+    }
+    drawCount(count, right, bottom) {
+      let e = this.ctx;
+      ((e.font = "700 13px ui-monospace, Menlo, Consolas, monospace"),
+        (e.textAlign = "right"),
+        (e.fillStyle = "rgba(0,0,0,0.7)"),
+        e.fillText(String(count), right + 1, bottom + 1),
+        (e.fillStyle = "#fff"),
+        e.fillText(String(count), right, bottom),
+        (e.textAlign = "left"));
+    }
+    drawHurtFlash(amount) {
+      let e = this.ctx;
+      ((e.fillStyle = `rgba(190, 20, 20, ${Math.min(0.45, amount * 0.45)})`),
+        e.fillRect(0, 0, this.w, this.h));
+    }
+    drawMiningProgress(progress) {
+      let e = this.ctx,
+        x = this.w / 2,
+        y = this.h / 2;
+      (e.beginPath(),
+        e.arc(x, y, 16, 0, Math.PI * 2),
+        (e.strokeStyle = "rgba(0,0,0,0.35)"),
+        (e.lineWidth = 4),
+        e.stroke(),
+        e.beginPath(),
+        e.arc(x, y, 16, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, progress)),
+        (e.strokeStyle = "rgba(255,255,255,0.9)"),
+        e.stroke());
+    }
+    drawVitals(t) {
+      let e = this.ctx,
+        width = 9 * st + 8 * ve,
+        left = Math.round((this.w - width) / 2),
+        top = Math.round(this.h - st - 18) - 24,
+        size = 16,
+        gap = 2;
+      for (let i = 0; i < MAX_HEALTH / 2; i++) {
+        let hp = t.health - i * 2,
+          x = left + i * (size + gap),
+          // flash empty outlines briefly when hurt
+          shake = t.hurtFlash > 0.3 ? (Math.random() - 0.5) * 2 : 0;
+        (drawHeart(e, x + size / 2, top + size / 2 + shake, size, "rgba(0,0,0,0.55)", 1),
+          hp >= 2
+            ? drawHeart(e, x + size / 2, top + size / 2 + shake, size - 4, "#e0302c", 1)
+            : hp === 1 &&
+              drawHeart(e, x + size / 2, top + size / 2 + shake, size - 4, "#e0302c", 0.5));
+      }
+      if (t.air < MAX_AIR)
+        for (let i = 0; i < 10; i++) {
+          let x = left + width - (i + 1) * (size + gap) + gap;
+          i < Math.ceil((t.air / MAX_AIR) * 10) &&
+            (e.beginPath(),
+            e.arc(x + size / 2, top + size / 2, size / 2 - 2, 0, Math.PI * 2),
+            (e.fillStyle = "rgba(120, 190, 255, 0.85)"),
+            e.fill(),
+            (e.strokeStyle = "rgba(255,255,255,0.8)"),
+            (e.lineWidth = 1.5),
+            e.stroke());
+        }
     }
     hitTestInventory(t, e) {
       if (!this.inventoryOpen || !this.inventoryRects) return null;
@@ -2602,6 +2675,20 @@ var st = 52,
         (t.textAlign = "left"));
     }
   };
+// Heart centred on (cx, cy); `part` < 1 fills only the left half.
+function drawHeart(ctx, cx, cy, size, color, part) {
+  let s = size / 16;
+  (ctx.save(),
+    part < 1 && (ctx.beginPath(), ctx.rect(cx - size, cy - size, size, size * 2), ctx.clip()),
+    ctx.beginPath(),
+    ctx.moveTo(cx, cy + 6 * s),
+    ctx.bezierCurveTo(cx - 9 * s, cy - 1 * s, cx - 6 * s, cy - 8 * s, cx, cy - 3.5 * s),
+    ctx.bezierCurveTo(cx + 6 * s, cy - 8 * s, cx + 9 * s, cy - 1 * s, cx, cy + 6 * s),
+    ctx.closePath(),
+    (ctx.fillStyle = color),
+    ctx.fill(),
+    ctx.restore());
+}
 function Mt(i, t, e, s, o, n) {
   (i.beginPath(),
     i.moveTo(t + n, e),
@@ -3102,6 +3189,31 @@ var Gt = {
     } catch {}
   },
 };
+// Survival tuning
+var MAX_HEALTH = 20, // max health (10 hearts)
+  MAX_AIR = 10, // seconds of air underwater
+  MINE_SECONDS_PER_HARDNESS = 0.45,
+  SAFE_FALL = 3, // blocks you can fall without damage
+  REGEN_DELAY = 4,
+  REGEN_INTERVAL = 2.5;
+// What a block turns into when mined in survival (0 = nothing).
+var DROPS = null;
+function dropFor(id) {
+  return (
+    DROPS ||
+      (DROPS = {
+        [p.GRASS]: p.DIRT,
+        [p.SNOW_GRASS]: p.DIRT,
+        [p.STONE]: p.COBBLESTONE,
+        [p.LEAVES]: 0,
+        [p.GLASS]: 0,
+        [p.ICE]: 0,
+        [p.TALL_GRASS]: 0,
+        [p.DEAD_BUSH]: 0,
+      }),
+    id in DROPS ? DROPS[id] : id
+  );
+}
 var ys = 600,
   xs = 3,
   As = 30,
@@ -3134,7 +3246,22 @@ var ys = 600,
         (this.hotbar = ut.slice()),
         (this.keys = new Set()),
         (this.lastSpaceTap = 0),
-        (this.frameTimes = []));
+        (this.frameTimes = []),
+        (this.mode = "creative"),
+        (this.inv = new Map()),
+        (this.health = MAX_HEALTH),
+        (this.air = MAX_AIR),
+        (this.hurtFlash = 0),
+        (this.sinceHurt = 0),
+        (this.regenClock = 0),
+        (this.drownClock = 0),
+        (this.fallPeak = null),
+        (this.mining = !1),
+        (this.mineKey = ""),
+        (this.mineProgress = 0));
+    }
+    get survival() {
+      return this.mode === "survival";
     }
     async boot() {
       try {
@@ -3154,11 +3281,13 @@ var ys = 600,
       (e &&
         ((this.save = e),
         (T("continue").hidden = !1),
-        (T("continue").textContent = `Continue (seed ${e.seed}, ${Es(e.savedAt)})`)),
+        (T("continue").textContent =
+          `Continue ${e.settings?.mode || "creative"} (seed ${e.seed}, ${Es(e.savedAt)})`)),
         W.get("autostart") === "1" &&
           this.start({
             seed: W.has("seed") ? Me(W.get("seed")) : 1337,
             renderDistance: Number(W.get("rd") || 8),
+            mode: W.get("mode") || "creative",
           }),
         (window.__voxelcraft = this));
     }
@@ -3172,12 +3301,20 @@ var ys = 600,
         t.addEventListener("input", () => {
           T("rdValue").textContent = t.value;
         }),
+        (() => {
+          let m = Gt.get("mode", "survival"),
+            r = document.querySelector(`input[name="mode"][value="${m}"]`);
+          r && (r.checked = !0);
+        })(),
         T("play").addEventListener("click", () => {
-          let e = T("seed").value.trim();
-          this.start({
-            seed: e ? Me(e) : (Math.random() * 4294967295) >>> 0,
-            renderDistance: Number(t.value),
-          });
+          let e = T("seed").value.trim(),
+            m = document.querySelector('input[name="mode"]:checked')?.value || "survival";
+          (Gt.set("mode", m),
+            this.start({
+              seed: e ? Me(e) : (Math.random() * 4294967295) >>> 0,
+              renderDistance: Number(t.value),
+              mode: m,
+            }));
         }),
         T("continue").addEventListener("click", () => {
           this.start({ seed: this.save.seed, renderDistance: Number(t.value), save: this.save });
@@ -3186,7 +3323,10 @@ var ys = 600,
         T("saveNow").addEventListener("click", () => this.save_()),
         T("quit").addEventListener("click", () => this.quit()));
     }
-    start({ seed: t, renderDistance: e, save: s }) {
+    start({ seed: t, renderDistance: e, save: s, mode: m }) {
+      this.mode = s ? s.settings?.mode || "creative" : m === "survival" ? "survival" : "creative";
+      this.resetSurvivalState();
+      this.spawn = Ce(t >>> 0);
       if (
         (Gt.set("renderDistance", e),
         (T("menu").hidden = !0),
@@ -3204,9 +3344,15 @@ var ys = 600,
         (this.world.loadEdits(s.edits),
           this.player.restore(s.player),
           (this.timeOfDay = s.timeOfDay),
-          (this.hotbar = s.settings?.hotbar || ut.slice()));
+          (this.hotbar = s.settings?.hotbar || (this.survival ? Array(9).fill(0) : ut.slice())),
+          this.survival &&
+            ((this.inv = new Map(s.settings?.inv || [])),
+            (this.health = s.settings?.health ?? MAX_HEALTH),
+            (this.air = s.settings?.air ?? MAX_AIR),
+            (this.player.flying = !1)));
       else {
-        let o = Ce(this.seed);
+        this.hotbar = this.survival ? Array(9).fill(0) : ut.slice();
+        let o = this.spawn;
         ((this.player.x = o.x),
           (this.player.y = o.y),
           (this.player.z = o.z),
@@ -3215,7 +3361,7 @@ var ys = 600,
       }
       (bs(this.player),
         W.has("time") && (this.timeOfDay = Number(W.get("time"))),
-        W.has("fly") && (this.player.flying = W.get("fly") === "1"),
+        W.has("fly") && !this.survival && (this.player.flying = W.get("fly") === "1"),
         (this.loadTarget = Math.max(1, this.world.offsets.filter((o) => o.dist <= e - 1).length)),
         (this.loadingClock = 0),
         (this.running = !0),
@@ -3223,6 +3369,17 @@ var ys = 600,
         (this.spawnSettled = !1),
         (this.lastFrame = performance.now()),
         requestAnimationFrame(this.frame));
+    }
+    resetSurvivalState() {
+      ((this.player.flying = !1),
+        (this.inv = new Map()),
+        (this.health = MAX_HEALTH),
+        (this.air = MAX_AIR),
+        (this.hurtFlash = 0),
+        (this.sinceHurt = 99),
+        (this.fallPeak = null),
+        (this.mining = !1),
+        (this.mineProgress = 0));
     }
     quit() {
       if ((this.save_(), (this.running = !1), this.world)) {
@@ -3242,7 +3399,13 @@ var ys = 600,
         player: this.player.serialize(),
         edits: this.world.collectEdits(),
         timeOfDay: this.timeOfDay,
-        settings: { hotbar: this.hotbar },
+        settings: {
+          hotbar: this.hotbar,
+          mode: this.mode,
+          inv: [...this.inv],
+          health: this.health,
+          air: this.air,
+        },
       });
       ((T("saveInfo").textContent = t ? "World saved." : "Save failed (storage blocked?)."),
         t && this.hud.message("World saved"));
@@ -3276,16 +3439,26 @@ var ys = 600,
           if (!(!this.running || this.paused)) {
             if (this.hud.inventoryOpen) {
               let s = this.hud.hitTestInventory(e.clientX, e.clientY);
+              s &&
+                this.survival &&
+                (this.hotbar = this.hotbar.map((h, i) =>
+                  h === s && i !== this.player.selectedSlot ? 0 : h,
+                ));
               s && ((this.hotbar[this.player.selectedSlot] = s), (this.heldNameAlpha = 2.2));
               return;
             }
             document.pointerLockElement === t &&
               (e.button === 0
-                ? this.breakBlock()
+                ? this.survival
+                  ? (this.mining = !0)
+                  : this.breakBlock()
                 : e.button === 2
                   ? this.placeBlock()
                   : e.button === 1 && (this.pickBlock(), e.preventDefault()));
           }
+        }),
+        document.addEventListener("mouseup", (e) => {
+          e.button === 0 && (this.mining = !1);
         }),
         document.addEventListener("contextmenu", (e) => {
           this.running && e.preventDefault();
@@ -3335,7 +3508,9 @@ var ys = 600,
           }
         }),
         document.addEventListener("keyup", (e) => this.keys.delete(e.code)),
-        window.addEventListener("blur", () => this.keys.clear()),
+        window.addEventListener("blur", () => {
+          (this.keys.clear(), (this.mining = !1));
+        }),
         window.addEventListener("beforeunload", () => {
           this.world && this.save_();
         }));
@@ -3348,6 +3523,7 @@ var ys = 600,
           : this.glCanvas.requestPointerLock?.());
     }
     toggleFly() {
+      if (this.survival) return;
       ((this.player.flying = !this.player.flying),
         (this.player.vy = 0),
         this.hud.message(this.player.flying ? "Flying enabled" : "Flying disabled", 1.2));
@@ -3378,25 +3554,114 @@ var ys = 600,
         this.hud.message("Bedrock cannot be broken", 1.2);
         return;
       }
-      this.world.setBlock(t.x, t.y, t.z, p.AIR) && this.particles.spawnBlockBreak(t.x, t.y, t.z, e);
+      this.world.setBlock(t.x, t.y, t.z, p.AIR) &&
+        (this.particles.spawnBlockBreak(t.x, t.y, t.z, e),
+        this.survival && this.collect(dropFor(e)));
+    }
+    collect(id) {
+      if (!id) return;
+      if ((this.inv.set(id, (this.inv.get(id) || 0) + 1), this.hotbar.includes(id))) return;
+      let i = this.hotbar.findIndex((h) => !h);
+      i >= 0 && (this.hotbar[i] = id);
+    }
+    consume(id) {
+      let n = (this.inv.get(id) || 0) - 1;
+      n > 0
+        ? this.inv.set(id, n)
+        : (this.inv.delete(id), (this.hotbar = this.hotbar.map((h) => (h === id ? 0 : h))));
+    }
+    inventoryList() {
+      let have = [...this.inv.keys()];
+      return Ft.filter((id) => this.inv.has(id)).concat(have.filter((id) => !Ft.includes(id)));
+    }
+    updateMining(dt) {
+      let t = this.selection;
+      if (!this.mining || !t || document.pointerLockElement !== this.glCanvas) {
+        ((this.mineProgress = 0), (this.mineKey = ""));
+        return;
+      }
+      let key = `${t.x},${t.y},${t.z}`;
+      key !== this.mineKey && ((this.mineKey = key), (this.mineProgress = 0));
+      let hardness = Z[t.block].hardness;
+      if (t.block === p.BEDROCK) {
+        (this.mineProgress === 0 && this.hud.message("Bedrock cannot be broken", 1.2),
+          (this.mineProgress = 1e-6));
+        return;
+      }
+      ((this.mineProgress += dt / Math.max(0.05, hardness * MINE_SECONDS_PER_HARDNESS)),
+        this.mineProgress >= 1 &&
+          (this.breakBlock(), (this.mineProgress = 0), (this.mineKey = "")));
+    }
+    hurt(amount, reason) {
+      amount <= 0 ||
+        ((this.health = Math.max(0, this.health - amount)),
+        (this.hurtFlash = 1),
+        (this.sinceHurt = 0),
+        this.health <= 0 && this.die(reason));
+    }
+    die(reason) {
+      this.hud.message(`You ${reason}! Respawning at world spawn\u2026`, 3);
+      let s = this.spawn;
+      ((this.player.x = s.x),
+        (this.player.y = s.y),
+        (this.player.z = s.z),
+        (this.player.vx = this.player.vy = this.player.vz = 0),
+        this.player.settleOnGround(this.world),
+        (this.health = MAX_HEALTH),
+        (this.air = MAX_AIR),
+        (this.fallPeak = null),
+        (this.mining = !1));
+    }
+    updateSurvival(dt) {
+      let pl = this.player;
+      ((this.sinceHurt += dt), (this.hurtFlash = Math.max(0, this.hurtFlash - dt * 2.5)));
+      // Fall damage: remember the highest point since we last stood on ground / were in water.
+      pl.onGround || pl.inWater
+        ? (this.fallPeak !== null &&
+            pl.onGround &&
+            !pl.inWater &&
+            this.hurt(Math.floor(this.fallPeak - pl.y - SAFE_FALL), "fell from a high place"),
+          (this.fallPeak = null))
+        : (this.fallPeak = Math.max(this.fallPeak ?? pl.y, pl.y));
+      // Drowning
+      pl.headInWater
+        ? ((this.air = Math.max(0, this.air - dt)),
+          this.air <= 0 &&
+            ((this.drownClock += dt),
+            this.drownClock >= 1 && ((this.drownClock = 0), this.hurt(2, "drowned"))))
+        : ((this.air = Math.min(MAX_AIR, this.air + dt * 5)), (this.drownClock = 0));
+      // Slow natural regeneration
+      this.health < MAX_HEALTH && this.sinceHurt > REGEN_DELAY
+        ? ((this.regenClock += dt),
+          this.regenClock >= REGEN_INTERVAL && ((this.regenClock = 0), (this.health += 1)))
+        : (this.regenClock = 0);
     }
     placeBlock() {
       let t = this.selection;
       if (!t) return;
       let e = this.hotbar[this.player.selectedSlot];
-      if (!e) return;
+      if (!e || (this.survival && !this.inv.get(e))) return;
       let s = t.x + t.nx,
         o = t.y + t.ny,
         n = t.z + t.nz;
       o < 0 ||
         o >= 128 ||
-        (ie(this.world.getBlock(s, o, n)) &&
-          ((K[e] && this.player.intersectsBlock(s, o, n)) || this.world.setBlock(s, o, n, e)));
+        !ie(this.world.getBlock(s, o, n)) ||
+        (K[e] && this.player.intersectsBlock(s, o, n)) ||
+        (this.world.setBlock(s, o, n, e) && this.survival && this.consume(e));
     }
     pickBlock() {
       let t = this.selection;
       if (!t) return;
       let e = this.world.getBlock(t.x, t.y, t.z);
+      if (e && this.survival) {
+        if (!this.inv.get(e)) return;
+        let i = this.hotbar.indexOf(e);
+        if (i >= 0) {
+          ((this.player.selectedSlot = i), (this.heldNameAlpha = 2.2));
+          return;
+        }
+      }
       e && ((this.hotbar[this.player.selectedSlot] = e), (this.heldNameAlpha = 2.2));
     }
     frame = (t) => {
@@ -3416,6 +3681,9 @@ var ys = 600,
         this.world.update(this.player.x, this.player.z, this.paused ? 8 : 4),
         this.loading && this.updateLoading(e),
         (this.selection = this.paused || this.hud.inventoryOpen ? null : this.currentTarget()),
+        this.survival &&
+          (this.paused || this.loading || this.updateSurvival(e),
+          this.paused || this.hud.inventoryOpen ? (this.mineProgress = 0) : this.updateMining(e)),
         (this.heldNameAlpha = Math.max(0, this.heldNameAlpha - e)),
         this.renderer.render({
           world: this.world,
@@ -3435,6 +3703,13 @@ var ys = 600,
           heldNameAlpha: this.heldNameAlpha,
           debug: this.debug,
           pointer: this.pointer,
+          survival: this.survival,
+          counts: this.survival ? this.inv : null,
+          inventoryList: this.survival ? this.inventoryList() : null,
+          health: this.health,
+          air: this.air,
+          hurtFlash: this.hurtFlash,
+          mineProgress: this.mineProgress,
           debugLines: this.debug ? this.debugLines() : null,
         }));
     };
@@ -3470,7 +3745,12 @@ var ys = 600,
         ((this.loading = !1),
         (T("loading").hidden = !0),
         W.get("autostart") !== "1" && this.glCanvas.requestPointerLock?.(),
-        this.hud.message("Left click to break, right click to build", 3.5));
+        this.hud.message(
+          this.survival
+            ? "Survival: hold left click to mine, right click to build"
+            : "Creative: left click to break, right click to build, F to fly",
+          3.5,
+        ));
     }
     debugLines() {
       let t = this.player,
@@ -3485,7 +3765,7 @@ var ys = 600,
         a = this.selection,
         h = Ss(this.timeOfDay);
       return [
-        `Voxelcraft   ${this.fps} fps   seed ${this.seed}`,
+        `Voxelcraft   ${this.fps} fps   seed ${this.seed}   ${this.mode}`,
         `xyz  ${t.x.toFixed(2)} ${t.y.toFixed(2)} ${t.z.toFixed(2)}`,
         `chunk ${Math.floor(t.x) >> 4}, ${Math.floor(t.z) >> 4}   biome ${n}`,
         `facing ${vs(t.yaw)}  yaw ${((t.yaw * 180) / Math.PI).toFixed(0)}\xB0  pitch ${((t.pitch * 180) / Math.PI).toFixed(0)}\xB0`,
