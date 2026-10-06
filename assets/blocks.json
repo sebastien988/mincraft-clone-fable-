@@ -1,6 +1,6 @@
 {
   "tile": 16,
-  "layers": 35,
+  "layers": 38,
   "seed": 1337,
   "names": [
     "stone",
@@ -37,6 +37,9 @@
     "flower_yellow",
     "tall_grass",
     "dead_bush",
-    "torch"
+    "torch",
+    "crafting_table_top",
+    "crafting_table_side",
+    "crafting_table_front"
   ]
 }

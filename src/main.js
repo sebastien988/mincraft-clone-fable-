@@ -90,6 +90,9 @@ var J,
       "tall_grass",
       "dead_bush",
       "torch",
+      "crafting_table_top",
+      "crafting_table_side",
+      "crafting_table_front",
     ]),
       (A = {}));
     J.forEach((i, t) => {
@@ -129,6 +132,7 @@ var J,
         TALL_GRASS: 29,
         DEAD_BUSH: 30,
         TORCH: 31,
+        CRAFTING_TABLE: 32,
       }),
       (_ = (i) => [i, i, i, i, i, i]),
       (ht = (i, t, e) => [t, t, i, e, t, t]));
@@ -224,6 +228,17 @@ var J,
       emit: 14,
       hardness: 0.1,
     });
+    E(p.CRAFTING_TABLE, "Crafting Table", {
+      tex: [
+        A.crafting_table_front,
+        A.crafting_table_side,
+        A.crafting_table_top,
+        A.planks,
+        A.crafting_table_front,
+        A.crafting_table_side,
+      ],
+      hardness: 2.5,
+    });
     ((tt = Z.length),
       (se = new Uint8Array(tt)),
       (K = new Uint8Array(tt)),
@@ -251,6 +266,7 @@ var J,
         p.MOSSY_COBBLESTONE,
         p.BRICKS,
         p.PLANKS,
+        p.CRAFTING_TABLE,
         p.LOG,
         p.LEAVES,
         p.SAND,
@@ -710,6 +726,34 @@ var m,
               i.set(e, t, 255, 190 + s * 60, 60 + s * 90, 255);
             }
           (i.set(7, 2, 255, 244, 190, 255), i.set(8, 2, 255, 236, 170, 255), i.bleedAlpha());
+        },
+        crafting_table_top(i) {
+          Q.planks(i);
+          // dark frame with a 3x3 grid carved into the top
+          for (let t = 0; t < m; t++)
+            (i.set(t, 0, 92, 68, 40),
+              i.set(t, m - 1, 92, 68, 40),
+              i.set(0, t, 92, 68, 40),
+              i.set(m - 1, t, 92, 68, 40));
+          for (let t = 2; t < m - 2; t++)
+            for (let e of [2, 6, 9, 13]) (i.set(e, t, 110, 82, 50), i.set(t, e, 110, 82, 50));
+        },
+        crafting_table_side(i) {
+          Q.planks(i);
+          i.rect(0, 0, m, 3, [112, 84, 50]);
+          for (let t = 0; t < m; t++) i.set(t, 3, 84, 62, 36);
+          // saw hanging on the side
+          (i.rect(3, 6, 9, 3, [176, 178, 182]), i.rect(11, 5, 3, 5, [104, 74, 44]));
+          for (let t = 3; t < 11; t += 2) i.set(t, 9, 140, 142, 146);
+        },
+        crafting_table_front(i) {
+          Q.planks(i);
+          i.rect(0, 0, m, 3, [112, 84, 50]);
+          for (let t = 0; t < m; t++) i.set(t, 3, 84, 62, 36);
+          // hammer and tongs
+          (i.rect(3, 6, 2, 8, [104, 74, 44]), i.rect(1, 5, 6, 3, [150, 152, 156]));
+          for (let t = 0; t < 7; t++)
+            (i.set(9 + t, 6 + t, 70, 70, 74), i.set(14 - t, 6 + t, 70, 70, 74));
         },
       }));
   });
@@ -2424,7 +2468,10 @@ var st = 52,
     }
     icon(t) {
       let e = this.icons.get(t);
-      return (e || ((e = ls(this.atlasData, Z[t], 96)), this.icons.set(t, e)), e);
+      return (
+        e || ((e = isItem(t) ? itemSprite(t) : ls(this.atlasData, Z[t], 96)), this.icons.set(t, e)),
+        e
+      );
     }
     resize() {
       let t = Math.min(window.devicePixelRatio || 1, 2),
@@ -2455,9 +2502,11 @@ var st = 52,
         this.inventoryOpen || !(t.mineProgress > 0) || this.drawMiningProgress(t.mineProgress),
         this.drawHotbar(t),
         t.survival && this.drawVitals(t),
-        this.inventoryOpen && this.drawInventory(t),
         t.debug && this.drawDebug(t),
-        this.drawMessages());
+        // messages sit under the survival inventory so they never cover its slots
+        t.inventory && this.drawMessages(),
+        this.inventoryOpen && (t.inventory ? this.drawSurvivalInventory(t) : this.drawInventory(t)),
+        t.inventory || this.drawMessages());
     }
     drawUnderwaterTint() {
       let t = this.ctx;
@@ -2504,23 +2553,18 @@ var st = 52,
           (e.lineWidth = c ? 2.5 : 1),
           (e.strokeStyle = c ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.24)"),
           e.stroke());
-        let f = s[h];
-        if (f) {
-          let u = this.icon(f),
-            d = 7;
-          (e.drawImage(u, l + d, r + d, st - d * 2, st - d * 2),
-            t.counts && this.drawCount(t.counts.get(f) || 0, l + st - 5, r + st - 6));
-        }
+        if (t.inventory) this.drawStack(t.inventory.slots[h], l, r, st);
+        else if (s[h]) e.drawImage(this.icon(s[h]), l + 7, r + 7, st - 14, st - 14);
         ((e.font = "600 11px ui-monospace, Menlo, Consolas, monospace"),
           (e.fillStyle = "rgba(255,255,255,0.55)"),
           e.fillText(String(h + 1), l + 5, r + 14));
       }
-      let a = s[t.selectedSlot];
+      let a = t.inventory ? t.inventory.slots[t.selectedSlot]?.id : s[t.selectedSlot];
       if (a && t.heldNameAlpha > 0.01) {
         ((e.globalAlpha = Math.min(1, t.heldNameAlpha)),
           (e.font = "600 15px system-ui, -apple-system, Segoe UI, sans-serif"),
           (e.textAlign = "center"));
-        let h = Z[a].name;
+        let h = itemName(a);
         ((e.fillStyle = "rgba(0,0,0,0.55)"),
           e.fillText(h, this.w / 2 + 1, r - 13),
           (e.fillStyle = "#fff"),
@@ -2533,8 +2577,8 @@ var st = 52,
       let e = this.ctx,
         s = 8,
         o = 56,
-        v = t.inventoryList || Ft,
-        n = Math.max(1, Math.ceil(v.length / s)),
+        v = Ft,
+        n = Math.ceil(v.length / s),
         r = s * o + 24,
         a = n * o + 66,
         h = Math.round((this.w - r) / 2),
@@ -2547,14 +2591,7 @@ var st = 52,
         e.stroke(),
         (e.font = "600 15px system-ui, -apple-system, Segoe UI, sans-serif"),
         (e.fillStyle = "rgba(255,255,255,0.82)"),
-        e.fillText(
-          (t.survival ? "Inventory" : "Blocks") +
-            (v.length
-              ? "  \u2014  click to put in slot " + (t.selectedSlot + 1)
-              : "  \u2014  empty, go mine some blocks"),
-          h + 14,
-          l + 26,
-        ),
+        e.fillText("Blocks  \u2014  click to put in slot " + (t.selectedSlot + 1), h + 14, l + 26),
         (this.inventoryRects = []),
         v.forEach((c, f) => {
           let u = h + 12 + (f % s) * o,
@@ -2569,7 +2606,6 @@ var st = 52,
             (e.fillStyle = g ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.05)"),
             e.fill(),
             e.drawImage(this.icon(c), u + 6, d + 6, o - 16, o - 16),
-            t.counts && this.drawCount(t.counts.get(c) || 0, u + o - 9, d + o - 10),
             this.inventoryRects.push({ id: c, x: u, y: d, w: o - 4, h: o - 4 }),
             g &&
               ((e.font = "600 13px system-ui, -apple-system, Segoe UI, sans-serif"),
@@ -2578,6 +2614,187 @@ var st = 52,
               e.fillText(Z[c].name, this.w / 2, l + a - 14),
               (e.textAlign = "left")));
         }));
+    }
+    // One inventory slot's contents: icon, stack size and tool wear.
+    drawStack(stack, x, y, size) {
+      if (!stack) return;
+      let e = this.ctx,
+        pad = Math.round(size * 0.14);
+      (e.save(),
+        (e.imageSmoothingEnabled = !isItem(stack.id)),
+        e.drawImage(this.icon(stack.id), x + pad, y + pad, size - pad * 2, size - pad * 2),
+        e.restore(),
+        stack.count > 1 && this.drawCount(stack.count, x + size - 5, y + size - 6));
+      let tool = ITEMS[stack.id];
+      if (tool?.durability && stack.dmg > 0) {
+        let left = 1 - stack.dmg / tool.durability,
+          w = size - pad * 2;
+        ((e.fillStyle = "rgba(0,0,0,0.8)"),
+          e.fillRect(x + pad, y + size - pad - 1, w, 3),
+          (e.fillStyle = `hsl(${Math.round(left * 120)}, 80%, 50%)`),
+          e.fillRect(x + pad, y + size - pad - 1, Math.max(1, Math.round(w * left)), 2));
+      }
+    }
+    // Slot rectangles for the survival inventory screen (also used for hit testing).
+    survivalLayout(inv) {
+      let size = 44,
+        pitch = 48,
+        pad = 18,
+        n = inv.gridSize,
+        width = 9 * pitch - 4 + pad * 2,
+        craftH = n * pitch - 4,
+        height = pad + 24 + craftH + 18 + 22 + 3 * pitch + 10 + pitch - 4 + 40,
+        x0 = Math.round((this.w - width) / 2),
+        y0 = Math.max(8, Math.round((this.h - height) / 2) - 20),
+        rects = [],
+        gridW = n * pitch - 4,
+        arrowW = 56,
+        resultSize = 52,
+        gx = x0 + Math.round((width - (gridW + arrowW + resultSize)) / 2),
+        gy = y0 + pad + 24;
+      for (let i = 0; i < n * n; i++)
+        rects.push({
+          area: "grid",
+          index: i,
+          x: gx + (i % n) * pitch,
+          y: gy + ((i / n) | 0) * pitch,
+          w: size,
+          h: size,
+        });
+      let result = {
+        area: "result",
+        index: 0,
+        x: gx + gridW + arrowW,
+        y: gy + Math.round((craftH - resultSize) / 2),
+        w: resultSize,
+        h: resultSize,
+      };
+      rects.push(result);
+      let invLabelY = gy + craftH + 18 + 14,
+        sy = invLabelY + 10;
+      for (let i = 9; i < 36; i++)
+        rects.push({
+          area: "slot",
+          index: i,
+          x: x0 + pad + ((i - 9) % 9) * pitch,
+          y: sy + (((i - 9) / 9) | 0) * pitch,
+          w: size,
+          h: size,
+        });
+      let hy = sy + 3 * pitch + 10;
+      for (let i = 0; i < 9; i++)
+        rects.push({ area: "slot", index: i, x: x0 + pad + i * pitch, y: hy, w: size, h: size });
+      return {
+        x0,
+        y0,
+        width,
+        height,
+        pad,
+        rects,
+        result,
+        gx,
+        gy,
+        gridW,
+        craftH,
+        arrowW,
+        invLabelY,
+      };
+    }
+    drawSurvivalInventory(t) {
+      let e = this.ctx,
+        inv = t.inventory,
+        L = this.survivalLayout(inv),
+        hover = null;
+      ((e.fillStyle = "rgba(0,0,0,0.35)"),
+        e.fillRect(0, 0, this.w, this.h),
+        (e.fillStyle = "rgba(14,16,22,0.94)"),
+        Mt(e, L.x0, L.y0, L.width, L.height, 12),
+        e.fill(),
+        (e.strokeStyle = "rgba(255,255,255,0.16)"),
+        (e.lineWidth = 1),
+        e.stroke(),
+        (e.font = "600 15px system-ui, -apple-system, Segoe UI, sans-serif"),
+        (e.fillStyle = "rgba(255,255,255,0.85)"),
+        e.fillText(
+          inv.gridSize === 3 ? "Crafting Table" : "Crafting",
+          L.x0 + L.pad,
+          L.y0 + L.pad + 10,
+        ),
+        e.fillText("Inventory", L.x0 + L.pad, L.invLabelY));
+      // arrow between grid and result
+      let ax = L.gx + L.gridW + 12,
+        ay = L.gy + L.craftH / 2;
+      (e.beginPath(),
+        e.moveTo(ax, ay - 5),
+        e.lineTo(ax + 20, ay - 5),
+        e.lineTo(ax + 20, ay - 12),
+        e.lineTo(ax + 32, ay),
+        e.lineTo(ax + 20, ay + 12),
+        e.lineTo(ax + 20, ay + 5),
+        e.lineTo(ax, ay + 5),
+        e.closePath(),
+        (e.fillStyle = "rgba(255,255,255,0.35)"),
+        e.fill());
+      let result = inv.result();
+      for (let r of L.rects) {
+        let stack =
+            r.area === "grid"
+              ? inv.grid[r.index]
+              : r.area === "slot"
+                ? inv.slots[r.index]
+                : result && newStack(result.id, result.count),
+          over =
+            t.pointer &&
+            t.pointer.x >= r.x &&
+            t.pointer.x < r.x + r.w &&
+            t.pointer.y >= r.y &&
+            t.pointer.y < r.y + r.h,
+          selected = r.area === "slot" && r.index === t.selectedSlot;
+        (over && (hover = stack),
+          Mt(e, r.x, r.y, r.w, r.h, 6),
+          (e.fillStyle = over ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.06)"),
+          e.fill(),
+          (e.lineWidth = selected ? 2 : 1),
+          (e.strokeStyle = selected
+            ? "rgba(255,255,255,0.75)"
+            : r.area === "result"
+              ? "rgba(108,194,74,0.6)"
+              : "rgba(255,255,255,0.12)"),
+          e.stroke(),
+          this.drawStack(stack, r.x, r.y, r.w));
+      }
+      // tooltip line
+      if (hover && !inv.cursor) {
+        let tool = ITEMS[hover.id],
+          text =
+            itemName(hover.id) +
+            (tool?.durability
+              ? `  (${tool.durability - (hover.dmg || 0)}/${tool.durability} uses)`
+              : "");
+        ((e.font = "600 13px system-ui, -apple-system, Segoe UI, sans-serif"),
+          (e.textAlign = "center"),
+          (e.fillStyle = "#fff"),
+          e.fillText(text, L.x0 + L.width / 2, L.y0 + L.height - 16),
+          (e.textAlign = "left"));
+      } else
+        ((e.font = "12px system-ui, -apple-system, Segoe UI, sans-serif"),
+          (e.textAlign = "center"),
+          (e.fillStyle = "rgba(255,255,255,0.45)"),
+          e.fillText(
+            "Left click: take/place stack \u00B7 Right click: split/place one \u00B7 Shift-click: move",
+            L.x0 + L.width / 2,
+            L.y0 + L.height - 16,
+          ),
+          (e.textAlign = "left"));
+      // stack held by the mouse follows the pointer
+      inv.cursor && t.pointer && this.drawStack(inv.cursor, t.pointer.x - 22, t.pointer.y - 22, 44);
+      this.slotRects = L.rects;
+    }
+    hitTestSlots(x, y) {
+      if (!this.inventoryOpen || !this.slotRects) return null;
+      for (let r of this.slotRects)
+        if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return r;
+      return null;
     }
     drawCount(count, right, bottom) {
       let e = this.ctx;
@@ -3189,11 +3406,360 @@ var Gt = {
     } catch {}
   },
 };
+// ---------------------------------------------------------------------------
+// Items, tools, crafting and the survival inventory
+// ---------------------------------------------------------------------------
+// Block ids are < 64; non-placeable items live at 100+.
+var ITEM = {
+  STICK: 100,
+  COAL: 101,
+  WOODEN_PICKAXE: 110,
+  WOODEN_AXE: 111,
+  WOODEN_SHOVEL: 112,
+  STONE_PICKAXE: 113,
+  STONE_AXE: 114,
+  STONE_SHOVEL: 115,
+};
+var TOOL_TIERS = {
+  wood: { label: "Wooden", speed: 2.5, durability: 60, color: [168, 132, 82] },
+  stone: { label: "Stone", speed: 5, durability: 132, color: [138, 138, 142] },
+};
+var ITEMS = {
+  [ITEM.STICK]: { name: "Stick", sprite: "stick" },
+  [ITEM.COAL]: { name: "Coal", sprite: "coal" },
+};
+for (let tier of ["wood", "stone"])
+  for (let kind of ["pickaxe", "axe", "shovel"]) {
+    let t = TOOL_TIERS[tier];
+    ITEMS[ITEM[`${tier === "wood" ? "WOODEN" : "STONE"}_${kind.toUpperCase()}`]] = {
+      name: `${t.label} ${kind[0].toUpperCase()}${kind.slice(1)}`,
+      sprite: kind,
+      color: t.color,
+      tool: kind,
+      speed: t.speed,
+      durability: t.durability,
+      stack: 1,
+    };
+  }
+function isItem(id) {
+  return id >= 100;
+}
+function itemName(id) {
+  return (isItem(id) ? ITEMS[id] : Z[id])?.name ?? "?";
+}
+function maxStack(id) {
+  return (isItem(id) && ITEMS[id]?.stack) || 64;
+}
+function newStack(id, count = 1) {
+  return ITEMS[id]?.tool ? { id, count, dmg: 0 } : { id, count };
+}
+
+// Which tool mines a block fastest. Pickaxe blocks drop nothing without a pickaxe.
+var TOOL_FOR = null;
+function toolFor(block) {
+  if (!TOOL_FOR) {
+    TOOL_FOR = {};
+    for (let b of [
+      p.STONE,
+      p.COBBLESTONE,
+      p.MOSSY_COBBLESTONE,
+      p.SANDSTONE,
+      p.BRICKS,
+      p.COAL_ORE,
+      p.IRON_ORE,
+      p.GOLD_ORE,
+      p.DIAMOND_ORE,
+      p.OBSIDIAN,
+    ])
+      TOOL_FOR[b] = "pickaxe";
+    for (let b of [p.LOG, p.PLANKS, p.CRAFTING_TABLE, p.CACTUS]) TOOL_FOR[b] = "axe";
+    for (let b of [p.DIRT, p.GRASS, p.SAND, p.GRAVEL, p.CLAY, p.SNOW, p.SNOW_GRASS])
+      TOOL_FOR[b] = "shovel";
+  }
+  return TOOL_FOR[block];
+}
+
+// Shaped recipes: rows of characters, " " = empty. Patterns may be mirrored.
+var RECIPE_LIST = null;
+function recipes() {
+  if (RECIPE_LIST) return RECIPE_LIST;
+  let r = (rows, keys, id, count = 1) => ({ rows, keys, id, count });
+  RECIPE_LIST = [
+    r(["L"], { L: p.LOG }, p.PLANKS, 4),
+    r(["P", "P"], { P: p.PLANKS }, ITEM.STICK, 4),
+    r(["PP", "PP"], { P: p.PLANKS }, p.CRAFTING_TABLE),
+    r(["C", "S"], { C: ITEM.COAL, S: ITEM.STICK }, p.TORCH, 4),
+    r(["SS", "SS"], { S: p.SAND }, p.SANDSTONE),
+    r(["CC", "CC"], { C: p.CLAY }, p.BRICKS),
+  ];
+  for (let [m, tier] of [
+    [p.PLANKS, "WOODEN"],
+    [p.COBBLESTONE, "STONE"],
+  ]) {
+    let k = { M: m, S: ITEM.STICK };
+    RECIPE_LIST.push(
+      r(["MMM", " S ", " S "], k, ITEM[`${tier}_PICKAXE`]),
+      r(["MM", "MS", " S"], k, ITEM[`${tier}_AXE`]),
+      r(["M", "S", "S"], k, ITEM[`${tier}_SHOVEL`]),
+    );
+  }
+  return RECIPE_LIST;
+}
+// `ids` is an n*n grid of item ids (0 = empty). Returns { id, count } or null.
+function matchRecipe(ids, n) {
+  let top = n,
+    bottom = -1,
+    left = n,
+    right = -1;
+  ids.forEach((id, i) => {
+    if (!id) return;
+    let y = (i / n) | 0,
+      x = i % n;
+    ((top = Math.min(top, y)),
+      (bottom = Math.max(bottom, y)),
+      (left = Math.min(left, x)),
+      (right = Math.max(right, x)));
+  });
+  if (bottom < 0) return null;
+  let h = bottom - top + 1,
+    w = right - left + 1;
+  for (let rec of recipes()) {
+    if (rec.rows.length !== h || rec.rows[0].length !== w) continue;
+    for (let mirror of [!1, !0]) {
+      let ok = !0;
+      for (let y = 0; y < h && ok; y++)
+        for (let x = 0; x < w && ok; x++) {
+          let ch = rec.rows[y][mirror ? w - 1 - x : x],
+            want = ch === " " ? 0 : rec.keys[ch];
+          ids[(top + y) * n + left + x] !== want && (ok = !1);
+        }
+      if (ok) return { id: rec.id, count: rec.count };
+    }
+  }
+  return null;
+}
+
+// 36 slots (0-8 hotbar, 9-35 storage), a crafting grid and the stack held by the mouse.
+var Inventory = class {
+  constructor() {
+    ((this.slots = Array(36).fill(null)),
+      (this.gridSize = 2),
+      (this.grid = Array(4).fill(null)),
+      (this.cursor = null));
+  }
+  // Put a stack into slots [from, to): top up matching stacks, then use empty slots.
+  // Returns whatever did not fit (or null).
+  addStackRange(stack, from = 0, to = 36) {
+    let max = maxStack(stack.id);
+    if (max > 1)
+      for (let i = from; i < to && stack.count > 0; i++) {
+        let s = this.slots[i];
+        if (s && s.id === stack.id && s.count < max) {
+          let k = Math.min(stack.count, max - s.count);
+          ((s.count += k), (stack.count -= k));
+        }
+      }
+    for (let i = from; i < to && stack.count > 0; i++)
+      if (!this.slots[i]) {
+        let k = Math.min(stack.count, max);
+        ((this.slots[i] = { ...stack, count: k }), (stack.count -= k));
+      }
+    return stack.count > 0 ? stack : null;
+  }
+  add(id, count = 1) {
+    let rest = this.addStackRange(newStack(id, count));
+    return rest ? rest.count : 0;
+  }
+  room(id) {
+    let max = maxStack(id),
+      n = 0;
+    for (let s of this.slots) s ? s.id === id && (n += max - s.count) : (n += max);
+    return n;
+  }
+  take(i, n = 1) {
+    let s = this.slots[i];
+    s && (s.count -= n) <= 0 && (this.slots[i] = null);
+  }
+  find(id, from = 0, to = 36) {
+    for (let i = from; i < to; i++) if (this.slots[i]?.id === id) return i;
+    return -1;
+  }
+  result() {
+    return matchRecipe(
+      this.grid.map((s) => (s ? s.id : 0)),
+      this.gridSize,
+    );
+  }
+  craftOnce() {
+    this.grid.forEach((s, i) => {
+      s && --s.count <= 0 && (this.grid[i] = null);
+    });
+  }
+  // Switch between the 2x2 (inventory) and 3x3 (crafting table) grid.
+  openCrafting(size) {
+    (this.returnLoose(), (this.gridSize = size), (this.grid = Array(size * size).fill(null)));
+  }
+  // Move anything in the crafting grid or on the cursor back into the slots.
+  // Returns the number of items that did not fit and were lost.
+  returnLoose() {
+    let lost = 0;
+    for (let s of [...this.grid, this.cursor]) s && (lost += this.addStackRange(s)?.count || 0);
+    return ((this.grid = this.grid.map(() => null)), (this.cursor = null), lost);
+  }
+  click(area, i, button, shift) {
+    if (area === "result") return this.clickResult(shift);
+    let list = area === "grid" ? this.grid : this.slots,
+      s = list[i],
+      c = this.cursor,
+      same = s && c && s.id === c.id && maxStack(s.id) > 1;
+    if (shift && button === 0) {
+      if (!s) return;
+      list[i] = null;
+      let rest =
+        area === "grid"
+          ? this.addStackRange(s)
+          : i < 9
+            ? this.addStackRange(s, 9, 36)
+            : this.addStackRange(s, 0, 9);
+      rest && (list[i] = rest);
+      return;
+    }
+    if (button === 0)
+      if (!c) ((list[i] = null), (this.cursor = s));
+      else if (!s) ((list[i] = c), (this.cursor = null));
+      else if (same) {
+        let k = Math.min(c.count, maxStack(s.id) - s.count);
+        ((s.count += k), (c.count -= k) <= 0 && (this.cursor = null));
+      } else ((list[i] = c), (this.cursor = s));
+    else if (button === 2)
+      if (!c) {
+        if (!s) return;
+        let half = Math.ceil(s.count / 2);
+        ((this.cursor = { ...s, count: half }), (s.count -= half) <= 0 && (list[i] = null));
+      } else if (!s) ((list[i] = { ...c, count: 1 }), --c.count <= 0 && (this.cursor = null));
+      else if (same)
+        s.count < maxStack(s.id) && (s.count++, --c.count <= 0 && (this.cursor = null));
+      else ((list[i] = c), (this.cursor = s));
+  }
+  clickResult(shift) {
+    let r = this.result();
+    if (!r) return;
+    if (shift) {
+      // craft repeatedly straight into the inventory while it fits
+      for (let n = 0; n < 64 && r && this.room(r.id) >= r.count; n++)
+        (this.addStackRange(newStack(r.id, r.count)), this.craftOnce(), (r = this.result()));
+      return;
+    }
+    let c = this.cursor;
+    if (!c) this.cursor = newStack(r.id, r.count);
+    else if (c.id === r.id && maxStack(r.id) > 1 && c.count + r.count <= maxStack(r.id))
+      c.count += r.count;
+    else return;
+    this.craftOnce();
+  }
+  // Items left in the crafting grid or on the cursor are saved as if put back.
+  serialize() {
+    let copy = Inventory.restore({ slots: this.slots });
+    for (let s of [...this.grid, this.cursor]) s && copy.addStackRange({ ...s });
+    return { slots: copy.slots };
+  }
+  static restore(data) {
+    let inv = new Inventory();
+    return (
+      data?.slots &&
+        data.slots.forEach((s, i) => {
+          i < 36 && s && s.id && s.count > 0 && (inv.slots[i] = { ...s });
+        }),
+      inv
+    );
+  }
+};
+
+// 16x16 pixel-art icons for items, drawn in code so no extra texture is needed.
+function itemSprite(id) {
+  let item = ITEMS[id],
+    px = new Map(),
+    put = (x, y, c) => x >= 0 && y >= 0 && x < 16 && y < 16 && px.set(y * 16 + x, c),
+    rand = ot(id * 977),
+    shade = (c, k) => c.map((v) => Math.max(0, Math.min(255, v + k))),
+    wood = [124, 92, 54],
+    woodLight = [150, 114, 68];
+  // diagonal handle from bottom-left towards top-right
+  let handle = (len) => {
+    for (let k = 0; k < len; k++) (put(2 + k, 13 - k, wood), put(3 + k, 13 - k, woodLight));
+  };
+  switch (item.sprite) {
+    case "stick":
+      handle(11);
+      break;
+    case "coal":
+      for (let y = 0; y < 16; y++)
+        for (let x = 0; x < 16; x++) {
+          let d = Math.hypot(x - 7.5, (y - 8) * 1.15);
+          d < 5.6 + rand() * 0.8 && put(x, y, shade([40, 40, 44], (rand() - 0.5) * 30));
+        }
+      break;
+    case "pickaxe":
+      handle(10);
+      for (let k = -5; k <= 5; k++) {
+        let bend = Math.abs(k) > 3 ? 1 : 0;
+        (put(10 + k + bend, 3 + k - bend, item.color),
+          put(10 + k + bend + 1, 3 + k - bend, shade(item.color, 28)));
+      }
+      break;
+    case "axe":
+      handle(10);
+      for (let y = 1; y < 9; y++)
+        for (let x = 5; x < 13; x++)
+          x + y < 14 &&
+            x + y >= 9 &&
+            x - y > -2 &&
+            put(x, y, x + y === 9 || x - y === -1 ? shade(item.color, 30) : item.color);
+      break;
+    case "shovel":
+      handle(9);
+      for (let y = 0; y < 8; y++)
+        for (let x = 8; x < 16; x++) {
+          let d = Math.hypot(x - 12, y - 3);
+          d < 3 && put(x, y, d < 1.6 ? shade(item.color, 26) : item.color);
+        }
+      break;
+  }
+  // dark outline so icons read on any background
+  let size = 96,
+    s = size / 16,
+    canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  let ctx = canvas.getContext("2d");
+  ctx.fillStyle = "rgba(20,16,12,0.9)";
+  for (let [i] of px)
+    for (let [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      let x = (i % 16) + dx,
+        y = ((i / 16) | 0) + dy;
+      x >= 0 &&
+        y >= 0 &&
+        x < 16 &&
+        y < 16 &&
+        !px.has(y * 16 + x) &&
+        ctx.fillRect(x * s, y * s, s, s);
+    }
+  for (let [i, c] of px)
+    ((ctx.fillStyle = `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`),
+      ctx.fillRect((i % 16) * s, ((i / 16) | 0) * s, s, s));
+  return canvas;
+}
+
 // Survival tuning
 var MAX_HEALTH = 20, // max health (10 hearts)
   MAX_AIR = 10, // seconds of air underwater
   MINE_SECONDS_PER_HARDNESS = 0.45,
   SAFE_FALL = 3, // blocks you can fall without damage
+  PICKAXE_PENALTY = 3.3, // mining stone-type blocks without a pickaxe is this much slower
   REGEN_DELAY = 4,
   REGEN_INTERVAL = 2.5;
 // What a block turns into when mined in survival (0 = nothing).
@@ -3210,6 +3776,7 @@ function dropFor(id) {
         [p.ICE]: 0,
         [p.TALL_GRASS]: 0,
         [p.DEAD_BUSH]: 0,
+        [p.COAL_ORE]: ITEM.COAL,
       }),
     id in DROPS ? DROPS[id] : id
   );
@@ -3248,7 +3815,7 @@ var ys = 600,
         (this.lastSpaceTap = 0),
         (this.frameTimes = []),
         (this.mode = "creative"),
-        (this.inv = new Map()),
+        (this.inventory = new Inventory()),
         (this.health = MAX_HEALTH),
         (this.air = MAX_AIR),
         (this.hurtFlash = 0),
@@ -3346,7 +3913,7 @@ var ys = 600,
           (this.timeOfDay = s.timeOfDay),
           (this.hotbar = s.settings?.hotbar || (this.survival ? Array(9).fill(0) : ut.slice())),
           this.survival &&
-            ((this.inv = new Map(s.settings?.inv || [])),
+            ((this.inventory = this.restoreInventory(s.settings)),
             (this.health = s.settings?.health ?? MAX_HEALTH),
             (this.air = s.settings?.air ?? MAX_AIR),
             (this.player.flying = !1)));
@@ -3372,7 +3939,7 @@ var ys = 600,
     }
     resetSurvivalState() {
       ((this.player.flying = !1),
-        (this.inv = new Map()),
+        (this.inventory = new Inventory()),
         (this.health = MAX_HEALTH),
         (this.air = MAX_AIR),
         (this.hurtFlash = 0),
@@ -3402,7 +3969,7 @@ var ys = 600,
         settings: {
           hotbar: this.hotbar,
           mode: this.mode,
-          inv: [...this.inv],
+          inventory: this.inventory.serialize(),
           health: this.health,
           air: this.air,
         },
@@ -3438,12 +4005,12 @@ var ys = 600,
         document.addEventListener("mousedown", (e) => {
           if (!(!this.running || this.paused)) {
             if (this.hud.inventoryOpen) {
+              if (this.survival) {
+                let r = this.hud.hitTestSlots(e.clientX, e.clientY);
+                r && this.inventory.click(r.area, r.index, e.button, e.shiftKey);
+                return;
+              }
               let s = this.hud.hitTestInventory(e.clientX, e.clientY);
-              s &&
-                this.survival &&
-                (this.hotbar = this.hotbar.map((h, i) =>
-                  h === s && i !== this.player.selectedSlot ? 0 : h,
-                ));
               s && ((this.hotbar[this.player.selectedSlot] = s), (this.heldNameAlpha = 2.2));
               return;
             }
@@ -3515,8 +4082,15 @@ var ys = 600,
           this.world && this.save_();
         }));
     }
-    toggleInventory() {
-      ((this.hud.inventoryOpen = !this.hud.inventoryOpen),
+    toggleInventory(gridSize = 2) {
+      if (this.survival)
+        if (this.hud.inventoryOpen) {
+          let lost = this.inventory.returnLoose();
+          lost &&
+            this.hud.message(`Inventory full \u2014 ${lost} item${lost > 1 ? "s" : ""} lost`, 2);
+        } else this.inventory.openCrafting(gridSize);
+      ((this.mining = !1),
+        (this.hud.inventoryOpen = !this.hud.inventoryOpen),
         document.body.classList.toggle("inventory", this.hud.inventoryOpen),
         this.hud.inventoryOpen
           ? document.exitPointerLock?.()
@@ -3555,24 +4129,38 @@ var ys = 600,
         return;
       }
       this.world.setBlock(t.x, t.y, t.z, p.AIR) &&
-        (this.particles.spawnBlockBreak(t.x, t.y, t.z, e),
-        this.survival && this.collect(dropFor(e)));
+        (this.particles.spawnBlockBreak(t.x, t.y, t.z, e), this.survival && this.harvest(e));
     }
-    collect(id) {
-      if (!id) return;
-      if ((this.inv.set(id, (this.inv.get(id) || 0) + 1), this.hotbar.includes(id))) return;
-      let i = this.hotbar.findIndex((h) => !h);
-      i >= 0 && (this.hotbar[i] = id);
+    heldStack() {
+      return this.inventory.slots[this.player.selectedSlot];
     }
-    consume(id) {
-      let n = (this.inv.get(id) || 0) - 1;
-      n > 0
-        ? this.inv.set(id, n)
-        : (this.inv.delete(id), (this.hotbar = this.hotbar.map((h) => (h === id ? 0 : h))));
+    heldTool() {
+      let h = this.heldStack();
+      return h && ITEMS[h.id]?.tool ? ITEMS[h.id] : null;
     }
-    inventoryList() {
-      let have = [...this.inv.keys()];
-      return Ft.filter((id) => this.inv.has(id)).concat(have.filter((id) => !Ft.includes(id)));
+    // Old survival saves stored a plain id -> count map; convert them to slots.
+    restoreInventory(settings) {
+      if (settings?.inventory) return Inventory.restore(settings.inventory);
+      let inv = new Inventory();
+      for (let [id, n] of settings?.inv || []) inv.add(id, n);
+      return inv;
+    }
+    // Survival: drop the mined block into the inventory and wear down the tool used.
+    harvest(block) {
+      let tool = this.heldTool(),
+        needsPick = toolFor(block) === "pickaxe";
+      if (tool) {
+        let h = this.heldStack();
+        ++h.dmg >= tool.durability &&
+          ((this.inventory.slots[this.player.selectedSlot] = null),
+          this.hud.message(`Your ${tool.name} broke!`, 1.8));
+      }
+      if (needsPick && tool?.tool !== "pickaxe") {
+        this.hud.message(`${Z[block].name} needs a pickaxe to collect`, 1.6);
+        return;
+      }
+      let drop = dropFor(block);
+      drop && this.inventory.add(drop) > 0 && this.hud.message("Inventory full", 1.2);
     }
     updateMining(dt) {
       let t = this.selection;
@@ -3588,7 +4176,13 @@ var ys = 600,
           (this.mineProgress = 1e-6));
         return;
       }
-      ((this.mineProgress += dt / Math.max(0.05, hardness * MINE_SECONDS_PER_HARDNESS)),
+      let seconds = hardness * MINE_SECONDS_PER_HARDNESS,
+        tool = this.heldTool(),
+        want = toolFor(t.block);
+      tool && tool.tool === want
+        ? (seconds /= tool.speed)
+        : want === "pickaxe" && (seconds *= PICKAXE_PENALTY);
+      ((this.mineProgress += dt / Math.max(0.05, seconds)),
         this.mineProgress >= 1 &&
           (this.breakBlock(), (this.mineProgress = 0), (this.mineKey = "")));
     }
@@ -3639,8 +4233,12 @@ var ys = 600,
     placeBlock() {
       let t = this.selection;
       if (!t) return;
-      let e = this.hotbar[this.player.selectedSlot];
-      if (!e || (this.survival && !this.inv.get(e))) return;
+      if (this.survival && t.block === p.CRAFTING_TABLE && !this.player.sneaking) {
+        this.toggleInventory(3);
+        return;
+      }
+      let e = this.survival ? this.heldStack()?.id : this.hotbar[this.player.selectedSlot];
+      if (!e || isItem(e)) return;
       let s = t.x + t.nx,
         o = t.y + t.ny,
         n = t.z + t.nz;
@@ -3648,19 +4246,24 @@ var ys = 600,
         o >= 128 ||
         !ie(this.world.getBlock(s, o, n)) ||
         (K[e] && this.player.intersectsBlock(s, o, n)) ||
-        (this.world.setBlock(s, o, n, e) && this.survival && this.consume(e));
+        (this.world.setBlock(s, o, n, e) &&
+          this.survival &&
+          this.inventory.take(this.player.selectedSlot));
     }
     pickBlock() {
       let t = this.selection;
       if (!t) return;
       let e = this.world.getBlock(t.x, t.y, t.z);
       if (e && this.survival) {
-        if (!this.inv.get(e)) return;
-        let i = this.hotbar.indexOf(e);
-        if (i >= 0) {
-          ((this.player.selectedSlot = i), (this.heldNameAlpha = 2.2));
-          return;
+        // select it in the hotbar, or swap it in from storage
+        let inv = this.inventory,
+          i = inv.find(e, 0, 9);
+        if (i < 0 && (i = inv.find(e, 9, 36)) >= 0) {
+          let sel = this.player.selectedSlot;
+          (([inv.slots[sel], inv.slots[i]] = [inv.slots[i], inv.slots[sel]]), (i = sel));
         }
+        i >= 0 && ((this.player.selectedSlot = i), (this.heldNameAlpha = 2.2));
+        return;
       }
       e && ((this.hotbar[this.player.selectedSlot] = e), (this.heldNameAlpha = 2.2));
     }
@@ -3704,8 +4307,7 @@ var ys = 600,
           debug: this.debug,
           pointer: this.pointer,
           survival: this.survival,
-          counts: this.survival ? this.inv : null,
-          inventoryList: this.survival ? this.inventoryList() : null,
+          inventory: this.survival ? this.inventory : null,
           health: this.health,
           air: this.air,
           hurtFlash: this.hurtFlash,

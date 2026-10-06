@@ -179,6 +179,9 @@ var Mt = [
     "tall_grass",
     "dead_bush",
     "torch",
+    "crafting_table_top",
+    "crafting_table_side",
+    "crafting_table_front",
   ],
   E = {};
 Mt.forEach((s, e) => {
@@ -218,6 +221,7 @@ var T = { NONE: 0, SOLID: 1, CUTOUT: 2, LIQUID: 3, CROSS: 4, TORCH: 5 },
     TALL_GRASS: 29,
     DEAD_BUSH: 30,
     TORCH: 31,
+    CRAFTING_TABLE: 32,
   },
   C = (s) => [s, s, s, s, s, s],
   St = (s, e, t) => [e, e, s, t, e, e];
@@ -328,6 +332,17 @@ d(n.TORCH, "Torch", {
   opacity: 0,
   emit: 14,
   hardness: 0.1,
+});
+d(n.CRAFTING_TABLE, "Crafting Table", {
+  tex: [
+    E.crafting_table_front,
+    E.crafting_table_side,
+    E.crafting_table_top,
+    E.planks,
+    E.crafting_table_front,
+    E.crafting_table_side,
+  ],
+  hardness: 2.5,
 });
 var ot = Rt.length,
   At = new Uint8Array(ot),
