@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Voxelcraft — a voxel sandbox in WebGL</title>
+<meta name="description" content="An infinite procedurally generated voxel world you can dig, build and explore, running entirely in the browser on WebGL2.">
+<meta name="theme-color" content="#0d1117">
+<link rel="icon" type="image/png" href="assets/icon.png">
+<link rel="apple-touch-icon" href="assets/icon.png">
+<meta property="og:title" content="Voxelcraft">
+<meta property="og:description" content="An infinite voxel world in your browser. WebGL2, greedy meshing, flood-fill lighting, no plugins.">
+<meta property="og:image" content="assets/icon.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="gl"></canvas>
+  <canvas id="hud"></canvas>
+</div>
+
+<!-- Title screen -->
+<div id="menu" class="overlay">
+  <div class="panel">
+    <h1>Voxelcraft</h1>
+    <p class="tagline">An infinite voxel world, rendered in WebGL2.</p>
+
+    <label class="field">
+      <span>World seed</span>
+      <input id="seed" type="text" placeholder="leave blank for random" autocomplete="off" spellcheck="false">
+    </label>
+
+    <label class="field">
+      <span>Render distance <b id="rdValue">8</b> chunks</span>
+      <input id="rd" type="range" min="4" max="16" step="1" value="8">
+    </label>
+
+    <div class="buttons">
+      <button id="play" class="primary">Create world</button>
+      <button id="continue" hidden>Continue</button>
+    </div>
+
+    <details class="controls">
+      <summary>Controls</summary>
+      <ul>
+        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &middot; <kbd>Space</kbd> jump &middot; <kbd>Shift</kbd> sneak</li>
+        <li><kbd>Ctrl</kbd> or hold <kbd>W</kbd> twice to sprint</li>
+        <li><kbd>F</kbd> or double-tap <kbd>Space</kbd> to fly &middot; <kbd>Space</kbd>/<kbd>Shift</kbd> to rise and fall</li>
+        <li>Left click breaks &middot; right click places &middot; middle click picks</li>
+        <li><kbd>1</kbd>–<kbd>9</kbd> or scroll to pick a slot &middot; <kbd>E</kbd> opens the block list</li>
+        <li><kbd>F3</kbd> debug overlay &middot; <kbd>Esc</kbd> pause</li>
+      </ul>
+    </details>
+
+    <p class="footnote" id="support"></p>
+  </div>
+</div>
+
+<!-- Pause -->
+<div id="pause" class="overlay" hidden>
+  <div class="panel narrow">
+    <h2>Paused</h2>
+    <div class="buttons column">
+      <button id="resume" class="primary">Resume</button>
+      <button id="saveNow">Save world</button>
+      <button id="quit">Quit to title</button>
+    </div>
+    <p class="footnote" id="saveInfo"></p>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="overlay" hidden>
+  <div class="panel narrow center">
+    <h2>Generating world</h2>
+    <div class="bar"><div id="bar"></div></div>
+    <p class="footnote" id="loadingText">shaping terrain…</p>
+  </div>
+</div>
+
+<!-- Fatal errors -->
+<div id="fatal" class="overlay" hidden>
+  <div class="panel narrow">
+    <h2>Cannot start</h2>
+    <p id="fatalText" class="footnote"></p>
+  </div>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
